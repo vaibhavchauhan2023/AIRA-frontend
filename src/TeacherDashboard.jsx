@@ -28,7 +28,7 @@ export default function TeacherDashboard({ user, onLogout }) {
       const coords = await getGPSCoordinates();
       
       // Step 2: Send it to the Node.js API to set the geofence
-      const response = await fetch(`${API_NODE}/api/set-location`, {
+      const response = await fetch(`${API_NODE}/api/set-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ classCode, coords }),
