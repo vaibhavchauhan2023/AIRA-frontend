@@ -5,7 +5,7 @@ import { VerificationFlow } from './VerificationFlow'; // Import the new compone
 
 // --- API Endpoints ---
 // This is the base URL of our Node.js backend
-export const API_NODE = 'https://aira-backend-phi.vercel.app/';
+export const API_NODE = 'https://aira-backend-phi.vercel.app';
 // This is the base URL of our Python AI backend
 export const API_PYTHON = 'http://localhost:5000';
 
