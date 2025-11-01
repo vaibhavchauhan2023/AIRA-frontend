@@ -5,7 +5,7 @@ import { VerificationFlow } from './VerificationFlow'; // Import the new compone
 
 // --- API Endpoints ---
 // This is the base URL of our Node.js backend
-export const API_NODE = 'http://localhost:4000';
+export const API_NODE = import.meta.env.VITE_API_NODE || 'http://localhost:4000';
 // This is the base URL of our Python AI backend
 export const API_PYTHON = 'http://localhost:5000';
 
