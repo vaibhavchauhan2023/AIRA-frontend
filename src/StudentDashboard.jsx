@@ -73,7 +73,7 @@ function TimetableCard({ cls, onMarkAttendance }) {
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-400">{cls.time} | {cls.teacher}</p>
+          <p className="text-sm text-gray-400">{cls.startTime} - {cls.endTime} | {cls.teacher}</p>
         </div>
         <div className="mt-4 sm:mt-0">
           {isLive && (
