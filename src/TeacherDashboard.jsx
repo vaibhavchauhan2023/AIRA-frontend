@@ -28,7 +28,7 @@ export default function TeacherDashboard({ user, onLogout }) {
       const coords = await getGPSCoordinates();
       
       // Step 2: Send it to the Node.js API to set the geofence
-      const response = await fetch(`${API_NODE}/api/set-session`, {
+      const response = await fetch(`${API_NODE}/api/start-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ classCode, coords }),
@@ -131,7 +131,7 @@ function ScheduleCard({ cls, onShowQr }) {
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-400">{cls.time} | Students Present: {cls.student_count}</p>
+          <p className="text-sm text-gray-400">{cls.startTime} - {cls.endTime} | Students Present: {cls.student_count}</p>
         </div>
         <div className="mt-4 sm:mt-0">
           {isLive && (
