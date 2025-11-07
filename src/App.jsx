@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'; // <-- Import useEffect
+import { useState, useEffect } from 'react';
 import StudentDashboard from './StudentDashboard';
 import TeacherDashboard from './TeacherDashboard';
 import { VerificationFlow } from './VerificationFlow';
@@ -12,37 +12,49 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [verifyingClass, setVerifyingClass] = useState(null);
   
-  // --- UPGRADED ROUTING ---
-  // We now read the URL path to set the default page
   const getInitialPage = () => {
     if (window.location.pathname === '/login') {
       return 'login';
     }
+    // If user is logged in, default to their dashboard
+    if (currentUser) {
+      return 'dashboard';
+    }
     return 'home';
   };
-  const [page, setPage] = useState(getInitialPage); 
-  // -------------------------
+  const [page, setPage] = useState(getInitialPage);
 
-  // --- NEW: This hook syncs the URL when 'page' changes ---
   useEffect(() => {
-    const path = page === 'home' ? '/' : `/${page}`;
-    // This updates the URL in the browser bar without reloading the page
-    window.history.pushState(null, '', path);
+    // When user logs in or out, update the page
+    if (currentUser && page !== 'dashboard') {
+      setPage('dashboard');
+    }
+    if (!currentUser && page === 'dashboard') {
+      setPage('home');
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    let path = '/';
+    if (page === 'login') path = '/login';
+    if (page === 'dashboard') path = '/dashboard';
+
+    // Only update URL if it's different
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, '', path);
+    }
   }, [page]);
-  // ----------------------------------------------------
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
-    // After login, we clear the URL path (will go to dashboard)
-    window.history.pushState(null, '', '/'); 
+    setPage('dashboard'); // <-- Go to dashboard on login
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
-    setPage('home'); // Go back to homepage on logout
+    setPage('home');
   };
 
-  // ... (rest of your handlers are the same) ...
   const startVerification = (classCode) => { setVerifyingClass(classCode); };
   const cancelVerification = () => { setVerifyingClass(null); };
   const verificationSuccess = (message) => {
@@ -50,8 +62,9 @@ export default function App() {
     setVerifyingClass(null);
   };
 
+  // --- RENDER LOGIC ---
 
-  // --- RENDER LOGIC (No changes here) ---
+  // A) User is marking attendance (no header)
   if (verifyingClass) {
     return (
       <VerificationFlow
@@ -63,17 +76,10 @@ export default function App() {
     );
   }
 
-  if (currentUser) {
-    if (currentUser.type === 'student') {
-      return <StudentDashboard user={currentUser} onLogout={handleLogout} onMarkAttendance={startVerification} />;
-    }
-    if (currentUser.type === 'teacher') {
-      return <TeacherDashboard user={currentUser} onLogout={handleLogout} />;
-    }
-  }
-
+  // B) Main App Layout (Header + Page Content)
   return (
     <div className="relative w-full min-h-screen bg-white text-gray-900 overflow-hidden font-sans">
+      {/* Background Aura */}
       <div className="absolute top-[-25rem] left-1/2 -translate-x-1/2 w-[100rem] h-[100rem] z-0 opacity-80 pointer-events-none">
         <div 
           className="w-full h-full rounded-full" 
@@ -84,15 +90,20 @@ export default function App() {
         />
       </div>
       
+      {/* Main Container */}
       <div className="relative max-w-7xl mx-auto px-6 py-8 z-10 flex flex-col min-h-screen">
         
+        {/* --- The Header is now ALWAYS visible (unless verifying) --- */}
         <Header 
           activePage={page} 
           onLoginClick={() => setPage('login')} 
-          onHomeClick={() => setPage('home')} 
+          onHomeClick={() => setPage('home')}
+          onLogoutClick={handleLogout} // <-- Pass logout handler
+          isLoggedIn={!!currentUser}  // <-- Tell header if user is logged in
         />
         
-        <main className="flex-grow flex flex-col">
+        {/* Main content area */}
+        <main className="flex-grow flex flex-col pt-10 md:pt-16">
           {page === 'home' && (
             <div className="overflow-y-auto">
               <Homepage onLoginClick={() => setPage('login')} />
@@ -104,16 +115,33 @@ export default function App() {
               <LoginPage onLoginSuccess={handleLoginSuccess} />
             </div>
           )}
+
+          {page === 'dashboard' && currentUser && (
+            <>
+              {currentUser.type === 'student' && (
+                <StudentDashboard
+                  user={currentUser}
+                  onMarkAttendance={startVerification}
+                />
+              )}
+              {currentUser.type === 'teacher' && (
+                <TeacherDashboard user={currentUser} />
+              )}
+            </>
+          )}
         </main>
       </div>
     </div>
   );
 }
 
+
 // ===================================================================
 // LOGIN PAGE COMPONENT (No changes needed)
 // ===================================================================
 function LoginPage({ onLoginSuccess }) {
+  // (This component is the same as before)
+  // ...
   const [userType, setUserType] = useState('student');
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');

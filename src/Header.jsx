@@ -1,6 +1,8 @@
 import React from 'react';
 
-export function Header({ activePage, onLoginClick, onHomeClick }) {
+// --- UPGRADE ---
+// Now accepts 'isLoggedIn' and 'onLogoutClick'
+export function Header({ activePage, onLoginClick, onHomeClick, isLoggedIn, onLogoutClick }) {
   
   const getNavStyles = (pageName) => {
     if (pageName === activePage) {
@@ -11,50 +13,61 @@ export function Header({ activePage, onLoginClick, onHomeClick }) {
 
   const handleNavClick = (e, page) => {
     e.preventDefault(); 
-    
     if (page === 'home') { onHomeClick(); }
-    if (page === 'features') { onHomeClick(); } // For now, "Features" goes home
-    if (page === 'how-it-works') { onHomeClick(); } // For now, "How it works" goes home
+    if (page === 'features') { onHomeClick(); }
+    if (page === 'how-it-works') { onHomeClick(); }
   };
 
   return (
     <header className="flex justify-between items-center bg-white/70 backdrop-blur-lg h-24 px-10 rounded-3xl shadow-lg border border-gray-100">
       
-      {/* --- UPDATE: Logo is now a clickable link --- */}
       <a 
         onClick={(e) => handleNavClick(e, 'home')}
         className="text-4xl font-extrabold text-main-blue tracking-tight cursor-pointer"
       >
         AIRA
       </a>
-      {/* ------------------------------------------- */}
-
-      <nav className="hidden md:flex items-center space-x-12">
-        <a 
-          onClick={(e) => handleNavClick(e, 'home')} 
-          className={getNavStyles('home')}
+      
+      {/* --- UPDATE: Hide nav links when logged in --- */}
+      {!isLoggedIn && (
+        <nav className="hidden md:flex items-center space-x-12">
+          <a 
+            onClick={(e) => handleNavClick(e, 'home')} 
+            className={getNavStyles('home')}
+          >
+            Home
+          </a>
+          <a 
+            onClick={(e) => handleNavClick(e, 'features')}
+            className={getNavStyles('features')}
+          >
+            Features
+          </a>
+          <a 
+            onClick={(e) => handleNavClick(e, 'how-it-works')}
+            className={getNavStyles('how-it-works')}
+          >
+            How it works?
+          </a>
+        </nav>
+      )}
+      
+      {/* --- UPDATE: Show Logout button when logged in --- */}
+      {isLoggedIn ? (
+        <button
+          onClick={onLogoutClick}
+          className="bg-gray-200 text-gray-800 font-semibold text-lg px-8 py-3 rounded-2xl shadow-md hover:bg-gray-300 transition-opacity duration-200"
         >
-          Home
-        </a>
-        <a 
-          onClick={(e) => handleNavClick(e, 'features')}
-          className={getNavStyles('features')}
+          Log Out
+        </button>
+      ) : (
+        <button
+          onClick={onLoginClick}
+          className="bg-main-blue text-white font-semibold text-lg px-8 py-3 rounded-2xl shadow-md hover:opacity-90 transition-opacity duration-200"
         >
-          Features
-        </a>
-        <a 
-          onClick={(e) => handleNavClick(e, 'how-it-works')}
-          className={getNavStyles('how-it-works')}
-        >
-          How it works?
-        </a>
-      </nav>
-      <button
-        onClick={onLoginClick}
-        className="bg-main-blue text-white font-semibold text-lg px-8 py-3 rounded-2xl shadow-md hover:opacity-90 transition-opacity duration-200"
-      >
-        Log In
-      </button>
+          Log In
+        </button>
+      )}
     </header>
   );
 }
