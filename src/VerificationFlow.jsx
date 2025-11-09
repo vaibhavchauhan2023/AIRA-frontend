@@ -76,40 +76,51 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
       else if (step === 'face') {
         setStatusMessage('Position your face in the oval...');
         try {
-          await startCamera(true); // Start FRONT camera
-          setTimeout(async () => {
-            setStatusMessage('Verifying face...');
-            const imageBase64 = captureFrame();
-            stopAllScanners();
-            
-            if (!API_PYTHON) throw new Error("AI server URL is not configured.");
-            
-            // --- 1. Call AI Server ---
-            const aiResponse = await fetch(`${API_PYTHON}/api/verify-face`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ image: imageBase64, userId }),
-            });
-            const aiResult = await aiResponse.json();
-            if (!aiResponse.ok) throw new Error(aiResult.message);
-            
-            // --- 2. Call Backend to Mark Attendance ---
-            setStatusMessage('Marking attendance...');
-            const backendResponse = await fetch(`${API_NODE}/api/mark-attendance`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ classCode, userId }),
-            });
-            const backendResult = await backendResponse.json();
-            if (!backendResponse.ok) throw new Error(backendResult.message);
+          setStatusMessage('Verifying face...');
+          const imageBase64 = captureFrame();
+          stopAllScanners();
 
-            // --- 3. Success ---
-            setStep('success');
-            onSuccess(backendResult.message);
+          if (!API_PYTHON) throw new Error("AI server URL is not configured.");
 
-          }, 3000); // 3-second delay
+          // --- 1. Call AI Server ---
+          const aiResponse = await fetch(`${API_PYTHON}/api/verify-face`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: imageBase64, userId }),
+          });
+
+          const aiResult = await aiResponse.json();
+
+          // --- THIS IS THE FIX ---
+          // If the server sent a 401 (or any error), this will be true
+          if (!aiResponse.ok) {
+            // This will be "Face Not Recognized. Please try again."
+            throw new Error(aiResult.message); 
+          }
+
+          // --- 2. Call Backend to Mark Attendance ---
+          // This code only runs if the face was verified
+          setStatusMessage('Marking attendance...');
+          const backendResponse = await fetch(`${API_NODE}/api/mark-attendance`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ classCode, userId }),
+          });
+
+          const backendResult = await backendResponse.json();
+          if (!backendResponse.ok) throw new Error(backendResult.message);
+
+          // --- 3. Success ---
+          // Show the *one* correct success alert
+          alert(backendResult.message); 
+          setStep('success');
+          onSuccess(); // Close the page
+
         } catch (err) {
-          setError(err.message || 'Face scan failed.');
+          // --- THIS IS THE FIX ---
+          // This will now catch "Face Not Recognized"
+          alert(err.message); 
+          onCancel(); // Go back to the dashboard
         }
       }
     };
