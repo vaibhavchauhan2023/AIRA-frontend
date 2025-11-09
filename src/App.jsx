@@ -6,7 +6,7 @@ import { Homepage } from './Homepage';
 import { Header } from './Header';
 
 export const API_NODE = 'https://aira-backend-phi.vercel.app';
-export const API_PYTHON = import.meta.env.VITE_API_PYTHON || 'http://localhost:5000';
+export const API_PYTHON = import.meta.env.VITE_API_PYTHON;
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
