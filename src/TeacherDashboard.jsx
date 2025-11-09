@@ -2,11 +2,10 @@ import { useState, useEffect } from 'react';
 import { API_NODE } from './App';
 import { QRCodeSVG } from 'qrcode.react';
 
-// --- UPGRADE: No longer needs 'onLogout' ---
 export default function TeacherDashboard({ user }) {
+  // ... (No changes to this part) ...
   const [schedule, setSchedule] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  
   const [showQr, setShowQr] = useState(null); 
   const [qrError, setQrError] = useState(null);
   const [isSettingLocation, setIsSettingLocation] = useState(false);
@@ -19,23 +18,18 @@ export default function TeacherDashboard({ user }) {
   const handleShowQr = async (classCode) => {
     setQrError(null);
     setShowQr(classCode);
-    setIsSettingLocation(true); // Show loading spinner
+    setIsSettingLocation(true);
 
     try {
       const coords = await getGPSCoordinates();
-      
       const response = await fetch(`${API_NODE}/api/start-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ classCode, coords }),
       });
-
       const result = await response.json();
       if (!response.ok) throw new Error(result.message);
-      
-      // Success! Location is set.
       setIsSettingLocation(false);
-      
     } catch (err) {
       setIsSettingLocation(false);
       setQrError(err.message || 'Failed to get location.');
@@ -43,18 +37,13 @@ export default function TeacherDashboard({ user }) {
   };
 
   return (
-    // --- UPGRADED: Removed the old dark container ---
     <div className="w-full max-w-5xl mx-auto">
-      
-      {/* --- UPGRADED: New Header Style --- */}
       <header className="flex justify-between items-center w-full mb-10">
         <div>
           <h1 className="text-4xl font-bold text-gray-900">Welcome, {user.name}!</h1>
           <p className="font-poppins text-xl text-gray-600">Today's Schedule</p>
         </div>
       </header>
-
-      {/* Schedule Section */}
       <main className="w-full space-y-4">
         {isLoading ? (
           <p className="text-center font-poppins text-gray-500">Loading schedule...</p>
@@ -70,30 +59,23 @@ export default function TeacherDashboard({ user }) {
           <p className="text-center font-poppins text-gray-500 py-20">No classes scheduled for today.</p>
         )}
       </main>
-
-      {/* --- UPGRADED: Re-skinned QR Code Modal --- */}
       {showQr && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white p-10 rounded-3xl shadow-2xl text-center w-full max-w-md">
             <h2 className="text-3xl font-bold mb-2 text-main-blue">Scan to Mark Attendance</h2>
             <p className="font-poppins text-lg mb-6 text-gray-600">{showQr}</p>
-            
             <div className="bg-white p-4 rounded-2xl border-2 border-gray-100 inline-block">
               <QRCodeSVG value={showQr} size={256} />
             </div>
-
             {isSettingLocation && (
-               <p className="font-poppins text-gray-500 mt-6">Getting GPS location...</p>
+               <p className="font-poppins text-gray-500 mt-6">Resetting session...</p>
             )}
-            
             {qrError && (
                <p className="font-poppins text-red-500 mt-6">{qrError}</p>
             )}
-            
             {!isSettingLocation && !qrError && (
               <p className="font-poppins text-green-600 mt-6">Session is active!</p>
             )}
-
             <button
               onClick={() => setShowQr(null)}
               className="mt-8 w-full bg-main-blue hover:opacity-90 text-white font-bold py-4 px-4 rounded-xl text-lg transition-colors"
@@ -107,7 +89,7 @@ export default function TeacherDashboard({ user }) {
   );
 }
 
-// --- UPGRADED: Re-skinned ScheduleCard ---
+// --- UPGRADED: ScheduleCard ---
 function ScheduleCard({ cls, onShowQr }) {
   const isLive = cls.live;
 
@@ -128,9 +110,9 @@ function ScheduleCard({ cls, onShowQr }) {
               </span>
             )}
           </div>
-          <p className="font-poppins text-md text-gray-600">{cls.startTime} - {cls.endTime} | Students Present: {cls.student_count}</p>
+          {/* --- THIS LINE IS UPGRADED --- */}
+          <p className="font-poppins text-md text-gray-600">{cls.startTime} - {cls.endTime} | Students Present: {cls.presentCount}</p>
         </div>
-
         <div className="mt-4 sm:mt-0">
           {isLive && (
             <button
@@ -146,8 +128,8 @@ function ScheduleCard({ cls, onShowQr }) {
   );
 }
 
-// GPS Helper Function (No changes)
-function getGPSCoordinates() {
+// ... (GPS function is the same) ...
+function getGPSCoordinates() { 
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error('Geolocation is not supported by your browser.'));
