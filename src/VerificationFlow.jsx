@@ -1,3 +1,4 @@
+// --- V7 FINAL FRONTEND DEPLOY ---
 import { useState, useEffect, useRef } from 'react';
 import { API_NODE, API_PYTHON } from './App';
 import { MdGpsFixed } from 'react-icons/md';

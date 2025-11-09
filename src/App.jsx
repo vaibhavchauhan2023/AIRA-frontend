@@ -1,3 +1,4 @@
+// --- V7 FINAL FRONTEND DEPLOY ---
 import { useState, useEffect } from 'react';
 import StudentDashboard from './StudentDashboard';
 import TeacherDashboard from './TeacherDashboard';
@@ -67,7 +68,7 @@ export default function App() {
   const startVerification = (classCode) => { setVerifyingClass(classCode); };
   const cancelVerification = () => { setVerifyingClass(null); };
   const verificationSuccess = (message) => {
-    alert('Attendance Marked! ' + message);
+    S
     setVerifyingClass(null);
   };
 
