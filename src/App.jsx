@@ -261,7 +261,7 @@ function LoginPage({ onLoginSuccess }) {
             id="password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.g., 12345)}
+            onChange={(e) => setPassword(e.target.value)}
             className="w-full px-4 py-4 text-gray-900 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-main-blue"
             placeholder="••••••••"
             required
