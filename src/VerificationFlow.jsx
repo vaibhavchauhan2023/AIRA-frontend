@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { API_NODE, API_PYTHON } from './App';
 import { MdGpsFixed } from 'react-icons/md';
-// --- 1. UPGRADE ---
 // We import the UI-based scanner, which is more reliable
 import { Html5QrcodeScanner } from 'html5-qrcode'; 
 
@@ -22,13 +21,13 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
       if (step === 'qr') {
         setStatusMessage('Scan the QR code in class...');
         
-        // --- 2. THE FIX ---
-        // We use the Html5QrcodeScanner component, but with a new config
-        // to hide the "Scan Image" button.
-        
         // Clear any old scanners
         if (qrScannerRef.current) {
-          qrScannerRef.current.clear().catch(err => console.error("Failed to clear scanner", err));
+          try {
+            qrScannerRef.current.clear();
+          } catch (err) {
+            console.error("Failed to clear scanner", err);
+          }
         }
         
         const qrScanner = new Html5QrcodeScanner(
@@ -60,9 +59,12 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
         setStatusMessage('Verifying your location...');
         stopAllScanners();
         try {
-          // ... (rest of location logic is the same) ...
           const coords = await getGPSCoordinates();
-          const response = await fetch(`${API_NODE}/api/verify-location`, { /* ... */ });
+          const response = await fetch(`${API_NODE}/api/verify-location`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ classCode, coords }),
+          });
           const result = await response.json();
           if (!response.ok) throw new Error(result.message);
           setStep('face');
@@ -74,23 +76,38 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
       else if (step === 'face') {
         setStatusMessage('Position your face in the oval...');
         try {
-          // ... (rest of face scan logic is the same) ...
           await startCamera(true); // Start FRONT camera
           setTimeout(async () => {
             setStatusMessage('Verifying face...');
             const imageBase64 = captureFrame();
             stopAllScanners();
+            
             if (!API_PYTHON) throw new Error("AI server URL is not configured.");
-            const aiResponse = await fetch(`${API_PYTHON}/api/verify-face`, { /* ... */ });
+            
+            // --- 1. Call AI Server ---
+            const aiResponse = await fetch(`${API_PYTHON}/api/verify-face`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: imageBase64, userId }),
+            });
             const aiResult = await aiResponse.json();
             if (!aiResponse.ok) throw new Error(aiResult.message);
+            
+            // --- 2. Call Backend to Mark Attendance ---
             setStatusMessage('Marking attendance...');
-            const backendResponse = await fetch(`${API_NODE}/api/mark-attendance`, { /* ... */ });
+            const backendResponse = await fetch(`${API_NODE}/api/mark-attendance`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ classCode, userId }),
+            });
             const backendResult = await backendResponse.json();
             if (!backendResponse.ok) throw new Error(backendResult.message);
+
+            // --- 3. Success ---
             setStep('success');
             onSuccess(backendResult.message);
-          }, 3000);
+
+          }, 3000); // 3-second delay
         } catch (err) {
           setError(err.message || 'Face scan failed.');
         }
@@ -112,7 +129,7 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
       try {
         qrScannerRef.current.clear();
       } catch (err) {
-        console.warn("QR scanner already stopped or failed to stop:", err);
+        // This can fail if the component unmounts quickly, ignore
       }
       qrScannerRef.current = null;
     }
@@ -183,7 +200,7 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
           
           <div className="relative w-full aspect-[3/4] bg-gray-100 rounded-3xl overflow-hidden shadow-2xl border border-gray-100">
             
-            {/* --- 3. THIS IS THE DIV FOR THE QR SCANNER --- */}
+            {/* --- THIS IS THE DIV FOR THE QR SCANNER --- */}
             {/* It will be visible only on the 'qr' step */}
             <div id="qr-reader-container" className={step === 'qr' ? '' : 'hidden'} />
             
