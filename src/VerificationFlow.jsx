@@ -52,27 +52,26 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
         setStatusMessage('Position your face in the oval...');
         try {
           await startCamera(true); // Start FRONT camera
-          
-          // Wait 3 seconds for user to get ready, then snap photo
+    
+          // Wait 3 seconds for user to get ready
           setTimeout(async () => {
             setStatusMessage('Verifying face...');
             const imageBase64 = captureFrame();
             stopCamera(); // Stop camera
-            
-            // Send to Python AI backend
-            // const response = await fetch(`${API_PYTHON}/api/verify-face`, {
-            //   method: 'POST',
-            //   headers: { 'Content-Type': 'application/json' },
-            //   body: JSON.stringify({ image: imageBase64, userId }),
-            // });
-            
-            // const result = await response.json();
-            // if (!response.ok) throw new Error(result.message);
-            const result = { message: "Face scan (mocked)" };
-            
+      
+            // --- THIS IS NOW LIVE ---
+            const response = await fetch(`${API_PYTHON}/api/verify-face`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: imageBase64, userId }),
+            });
+      
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message);
+      
             // SUCCESS!
             setStep('success');
-            onSuccess(result.message); // Call the success handler in App.jsx
+            onSuccess(result.message); // Call the success handler
 
           }, 3000);
 
