@@ -6,55 +6,64 @@ import { Homepage } from './Homepage';
 import { Header } from './Header';
 
 export const API_NODE = 'https://aira-backend-phi.vercel.app';
-export const API_PYTHON = import.meta.env.VITE_API_PYTHON;
+export const API_PYTHON = import.meta.env.VITE_API_PYTHON || 'http://localhost:5000';
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState(null);
+  
+  // --- UPGRADE 1: Initialize currentUser from localStorage ---
+  // This checks if a user was already logged in from a previous session
+  const [currentUser, setCurrentUser] = useState(() => {
+    const savedUser = localStorage.getItem('airaUser');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+  // --------------------------------------------------------
+
   const [verifyingClass, setVerifyingClass] = useState(null);
   
+  // --- UPGRADE 2: Initialize page based on localStorage AND URL ---
   const getInitialPage = () => {
-    if (window.location.pathname === '/login') {
-      return 'login';
-    }
-    // If user is logged in, default to their dashboard
-    if (currentUser) {
-      return 'dashboard';
-    }
+    const path = window.location.pathname;
+    const savedUser = localStorage.getItem('airaUser');
+
+    if (path === '/login') return 'login';
+    // If we have a saved user and are on /dashboard, stay there
+    if (savedUser && path === '/dashboard') return 'dashboard';
+    // If we have a saved user but are on root, go to dashboard
+    if (savedUser) return 'dashboard';
+    
     return 'home';
   };
   const [page, setPage] = useState(getInitialPage);
+  // -------------------------------------------------------------
 
-  useEffect(() => {
-    // When user logs in or out, update the page
-    if (currentUser && page !== 'dashboard') {
-      setPage('dashboard');
-    }
-    if (!currentUser && page === 'dashboard') {
-      setPage('home');
-    }
-  }, [currentUser]);
-
+  // This hook syncs the URL when 'page' changes
   useEffect(() => {
     let path = '/';
     if (page === 'login') path = '/login';
     if (page === 'dashboard') path = '/dashboard';
-
-    // Only update URL if it's different
+    
     if (window.location.pathname !== path) {
       window.history.pushState(null, '', path);
     }
   }, [page]);
 
+  // --- UPGRADE 3: Save user to localStorage on login ---
   const handleLoginSuccess = (user) => {
+    localStorage.setItem('airaUser', JSON.stringify(user)); // <-- SAVE USER
     setCurrentUser(user);
-    setPage('dashboard'); // <-- Go to dashboard on login
+    setPage('dashboard');
   };
+  // ----------------------------------------------------
 
+  // --- UPGRADE 4: Remove user from localStorage on logout ---
   const handleLogout = () => {
+    localStorage.removeItem('airaUser'); // <-- REMOVE USER
     setCurrentUser(null);
     setPage('home');
   };
+  // -------------------------------------------------------
 
+  // ... (rest of your handlers are the same) ...
   const startVerification = (classCode) => { setVerifyingClass(classCode); };
   const cancelVerification = () => { setVerifyingClass(null); };
   const verificationSuccess = (message) => {
@@ -62,9 +71,7 @@ export default function App() {
     setVerifyingClass(null);
   };
 
-  // --- RENDER LOGIC ---
-
-  // A) User is marking attendance (no header)
+  // --- RENDER LOGIC (No changes) ---
   if (verifyingClass) {
     return (
       <VerificationFlow
@@ -76,10 +83,52 @@ export default function App() {
     );
   }
 
-  // B) Main App Layout (Header + Page Content)
+  if (currentUser) {
+    // If user is logged in, we only render the dashboard wrapper
+    // (This part is simplified from your previous code)
+    return (
+      <div className="relative w-full min-h-screen bg-white text-gray-900 overflow-hidden font-sans">
+        {/* Background Aura */}
+        <div className="absolute top-[-25rem] left-1/2 -translate-x-1/2 w-[100rem] h-[100rem] z-0 opacity-80 pointer-events-none">
+          <div 
+            className="w-full h-full rounded-full" 
+            style={{
+              background: 'radial-gradient(circle, #EBF4FF 0%, transparent 70%)',
+              filter: 'blur(150px)',
+            }}
+          />
+        </div>
+        
+        {/* Main Container */}
+        <div className="relative max-w-7xl mx-auto px-6 py-8 z-10 flex flex-col min-h-screen">
+          
+          <Header 
+            activePage={page} 
+            onLoginClick={() => setPage('login')} 
+            onHomeClick={() => setPage('home')}
+            onLogoutClick={handleLogout}
+            isLoggedIn={!!currentUser}
+          />
+          
+          <main className="flex-grow flex flex-col pt-10 md:pt-16">
+            {currentUser.type === 'student' && (
+              <StudentDashboard
+                user={currentUser}
+                onMarkAttendance={startVerification}
+              />
+            )}
+            {currentUser.type === 'teacher' && (
+              <TeacherDashboard user={currentUser} />
+            )}
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // User is logged out
   return (
     <div className="relative w-full min-h-screen bg-white text-gray-900 overflow-hidden font-sans">
-      {/* Background Aura */}
       <div className="absolute top-[-25rem] left-1/2 -translate-x-1/2 w-[100rem] h-[100rem] z-0 opacity-80 pointer-events-none">
         <div 
           className="w-full h-full rounded-full" 
@@ -90,20 +139,17 @@ export default function App() {
         />
       </div>
       
-      {/* Main Container */}
       <div className="relative max-w-7xl mx-auto px-6 py-8 z-10 flex flex-col min-h-screen">
         
-        {/* --- The Header is now ALWAYS visible (unless verifying) --- */}
         <Header 
           activePage={page} 
           onLoginClick={() => setPage('login')} 
-          onHomeClick={() => setPage('home')}
-          onLogoutClick={handleLogout} // <-- Pass logout handler
-          isLoggedIn={!!currentUser}  // <-- Tell header if user is logged in
+          onHomeClick={() => setPage('home')} 
+          isLoggedIn={!!currentUser}
+          onLogoutClick={handleLogout}
         />
         
-        {/* Main content area */}
-        <main className="flex-grow flex flex-col pt-10 md:pt-16">
+        <main className="flex-grow flex flex-col">
           {page === 'home' && (
             <div className="overflow-y-auto">
               <Homepage onLoginClick={() => setPage('login')} />
@@ -114,20 +160,6 @@ export default function App() {
             <div className="flex-grow flex items-center justify-center">
               <LoginPage onLoginSuccess={handleLoginSuccess} />
             </div>
-          )}
-
-          {page === 'dashboard' && currentUser && (
-            <>
-              {currentUser.type === 'student' && (
-                <StudentDashboard
-                  user={currentUser}
-                  onMarkAttendance={startVerification}
-                />
-              )}
-              {currentUser.type === 'teacher' && (
-                <TeacherDashboard user={currentUser} />
-              )}
-            </>
           )}
         </main>
       </div>
@@ -229,7 +261,7 @@ function LoginPage({ onLoginSuccess }) {
             id="password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.g., 12345)}
             className="w-full px-4 py-4 text-gray-900 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-main-blue"
             placeholder="••••••••"
             required
