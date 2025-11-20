@@ -1,19 +1,43 @@
-import { useState, useEffect } from 'react';
-import { API_NODE } from './App';
-import { QRCodeSVG } from 'qrcode.react';
+import { useState, useEffect, useCallback } from 'react';
+import { API_NODE } from './App'; // <-- Added this import
+import { QRCodeSVG } from 'qrcode.react'; // <-- Added this import
 
 export default function TeacherDashboard({ user }) {
-  // ... (No changes to this part) ...
   const [schedule, setSchedule] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  
   const [showQr, setShowQr] = useState(null); 
   const [qrError, setQrError] = useState(null);
   const [isSettingLocation, setIsSettingLocation] = useState(false);
 
+  // Function to fetch latest schedule data (with student counts)
+  const fetchSchedule = useCallback(async () => {
+    try {
+      // We need the same "user-details" endpoint here
+      const response = await fetch(`${API_NODE}/api/user-details`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, userType: 'teacher' }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSchedule(data.timetable || []);
+      }
+    } catch (error) {
+      console.error("Failed to refresh schedule", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user.id]);
+
+  // Initial load + Polling
   useEffect(() => {
-    setSchedule(user.timetable || []);
-    setIsLoading(false);
-  }, [user]);
+    fetchSchedule();
+    // Refresh every 5 seconds to update student counts
+    const interval = setInterval(fetchSchedule, 5000);
+    return () => clearInterval(interval);
+  }, [fetchSchedule]);
 
   const handleShowQr = async (classCode) => {
     setQrError(null);
@@ -22,18 +46,29 @@ export default function TeacherDashboard({ user }) {
 
     try {
       const coords = await getGPSCoordinates();
+      
       const response = await fetch(`${API_NODE}/api/start-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ classCode, coords }),
       });
+
       const result = await response.json();
       if (!response.ok) throw new Error(result.message);
+      
       setIsSettingLocation(false);
+      fetchSchedule(); // Refresh immediately after starting
+      
     } catch (err) {
       setIsSettingLocation(false);
       setQrError(err.message || 'Failed to get location.');
     }
+  };
+  
+  // Function to close session/modal
+  const handleCloseQr = () => {
+      setShowQr(null);
+      fetchSchedule(); // Refresh counts when closing
   };
 
   return (
@@ -44,6 +79,7 @@ export default function TeacherDashboard({ user }) {
           <p className="font-poppins text-xl text-gray-600">Today's Schedule</p>
         </div>
       </header>
+
       <main className="w-full space-y-4">
         {isLoading ? (
           <p className="text-center font-poppins text-gray-500">Loading schedule...</p>
@@ -59,25 +95,31 @@ export default function TeacherDashboard({ user }) {
           <p className="text-center font-poppins text-gray-500 py-20">No classes scheduled for today.</p>
         )}
       </main>
+
       {showQr && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white p-10 rounded-3xl shadow-2xl text-center w-full max-w-md">
             <h2 className="text-3xl font-bold mb-2 text-main-blue">Scan to Mark Attendance</h2>
             <p className="font-poppins text-lg mb-6 text-gray-600">{showQr}</p>
+            
             <div className="bg-white p-4 rounded-2xl border-2 border-gray-100 inline-block">
               <QRCodeSVG value={showQr} size={256} />
             </div>
+
             {isSettingLocation && (
-               <p className="font-poppins text-gray-500 mt-6">Resetting session...</p>
+               <p className="font-poppins text-gray-500 mt-6">Resetting session & getting location...</p>
             )}
+            
             {qrError && (
                <p className="font-poppins text-red-500 mt-6">{qrError}</p>
             )}
+            
             {!isSettingLocation && !qrError && (
               <p className="font-poppins text-green-600 mt-6">Session is active!</p>
             )}
+
             <button
-              onClick={() => setShowQr(null)}
+              onClick={handleCloseQr}
               className="mt-8 w-full bg-main-blue hover:opacity-90 text-white font-bold py-4 px-4 rounded-xl text-lg transition-colors"
             >
               Close
@@ -89,7 +131,6 @@ export default function TeacherDashboard({ user }) {
   );
 }
 
-// --- UPGRADED: ScheduleCard ---
 function ScheduleCard({ cls, onShowQr }) {
   const isLive = cls.live;
 
@@ -110,15 +151,16 @@ function ScheduleCard({ cls, onShowQr }) {
               </span>
             )}
           </div>
-          {/* --- THIS LINE IS UPGRADED --- */}
-          <p className="font-poppins text-md text-gray-600">{cls.startTime} - {cls.endTime} | Students Present: {cls.presentCount}</p>
+          <p className="font-poppins text-md text-gray-600">{cls.startTime} - {cls.endTime} | Students Present: <b>{cls.presentCount}</b></p>
         </div>
+
         <div className="mt-4 sm:mt-0">
           {isLive && (
             <button
               onClick={() => onShowQr(cls.code)}
               className="w-full sm:w-auto px-6 py-3 font-bold bg-main-blue text-white rounded-xl shadow-md transition-all hover:opacity-90 transform hover:scale-105"
             >
+              {/* Change button text based on state if needed, simple "Show QR" is fine for re-opening */}
               Show QR Code
             </button>
           )}
@@ -128,8 +170,7 @@ function ScheduleCard({ cls, onShowQr }) {
   );
 }
 
-// ... (GPS function is the same) ...
-function getGPSCoordinates() { 
+function getGPSCoordinates() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error('Geolocation is not supported by your browser.'));

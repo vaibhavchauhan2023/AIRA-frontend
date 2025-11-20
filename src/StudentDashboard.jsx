@@ -1,17 +1,51 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { API_NODE } from './App';
 
 export default function StudentDashboard({ user, onMarkAttendance }) {
-  // ... (No changes to this part) ...
   const [timetable, setTimetable] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Function to fetch the latest timetable data
+  const fetchTimetable = useCallback(async () => {
+    try {
+      // We re-use the login endpoint logic to get the updated user data
+      // Note: In a real app, you'd have a specific endpoint like /api/student/timetable
+      // For now, we can re-fetch the user data if we have the credentials,
+      // BUT a better way for this specific setup is to ask the App.jsx to refresh the user.
+      
+      // Since we don't have the password here to re-login, we will rely on a prop 
+      // or a new endpoint. 
+      
+      // Let's add a simple endpoint to the backend to get "my details" using just the ID.
+      // Ideally this is protected by a token, but for this project:
+      const response = await fetch(`${API_NODE}/api/user-details`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, userType: 'student' }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setTimetable(data.timetable || []);
+      }
+    } catch (error) {
+      console.error("Failed to refresh timetable", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user.id]);
+
+  // Initial load
   useEffect(() => {
-    setTimetable(user.timetable || []);
-    setIsLoading(false);
-  }, [user]);
+    fetchTimetable();
+    
+    // Set up a poller to refresh data every 5 seconds (optional, but good for "live" feel)
+    const interval = setInterval(fetchTimetable, 5000);
+    return () => clearInterval(interval);
+  }, [fetchTimetable]);
 
   const handleMarkAttendance = (classCode) => {
-    onMarkAttendance(classCode);
+    onMarkAttendance(classCode, fetchTimetable); // Pass refresh callback
   };
 
   return (
@@ -41,10 +75,9 @@ export default function StudentDashboard({ user, onMarkAttendance }) {
   );
 }
 
-// --- UPGRADED: TimetableCard ---
 function TimetableCard({ cls, onMarkAttendance }) {
   const isLive = cls.live;
-  const isMarked = cls.isMarked; // Get the new prop
+  const isMarked = cls.isMarked;
 
   return (
     <div 
@@ -71,7 +104,6 @@ function TimetableCard({ cls, onMarkAttendance }) {
           <p className="font-poppins text-md text-gray-600">{cls.startTime} - {cls.endTime} | {cls.teacher}</p>
         </div>
 
-        {/* --- THIS LOGIC IS UPGRADED --- */}
         <div className="mt-4 sm:mt-0">
           {isLive && !isMarked && (
             <button
@@ -83,7 +115,7 @@ function TimetableCard({ cls, onMarkAttendance }) {
           )}
           {isLive && isMarked && (
              <button
-              className="w-full sm:w-auto px-6 py-3 font-bold bg-green-600 text-white rounded-xl opacity-80"
+              className="w-full sm:w-auto px-6 py-3 font-bold bg-green-600 text-white rounded-xl opacity-80 cursor-default"
               disabled
             >
               Attendance Marked
