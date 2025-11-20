@@ -1,3 +1,4 @@
+//additional comment
 import { useState, useEffect, useRef } from 'react';
 import { API_NODE, API_PYTHON } from './App';
 import { MdGpsFixed, MdCameraAlt } from 'react-icons/md'; // Added Camera icon
