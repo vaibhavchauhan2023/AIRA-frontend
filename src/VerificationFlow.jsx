@@ -282,11 +282,27 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
             <p className="font-poppins text-red-500 mt-4 text-lg">{error}</p>
           )}
           
-          {/* Capture Button */}
+          {/* --- ERROR RETRY SECTION --- */}
+          {step === 'face' && error && (
+             <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => {
+                      setError(null); // Clear error to show the Verify button again
+                      // The camera was already restarted by the catch block in handleCapture
+                  }}
+                  className="mt-2 w-full bg-yellow-500 hover:opacity-90 text-white font-bold py-4 px-4 rounded-xl text-xl transition-colors flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <MdCameraAlt className="text-2xl" />
+                  Try Again
+                </button>
+             </div>
+          )}
+
+          {/* --- NORMAL CAPTURE BUTTON --- */}
           {step === 'face' && !isProcessing && !error && (
             <button
               onClick={handleCapture}
-              className="mt-2 w-full bg-main-blue hover:opacity-90 text-white font-bold py-4 px-4 rounded-xl text-xl transition-colors flex items-center justify-center gap-2"
+              className="mt-2 w-full bg-main-blue hover:opacity-90 text-white font-bold py-4 px-4 rounded-xl text-xl transition-colors flex items-center justify-center gap-2 shadow-md"
             >
               <MdCameraAlt className="text-2xl" />
               Verify Identity
