@@ -19,7 +19,7 @@ export function Header({ activePage, onLoginClick, onHomeClick, isLoggedIn, onLo
   };
 
   return (
-    <header className="flex justify-between items-center bg-white/70 backdrop-blur-lg h-24 px-10 rounded-3xl shadow-lg border border-gray-100">
+    <header className="flex justify-between z-10 items-center bg-white backdrop-blur-lg pl-10 pr-5 py-4 bg-white rounded-3xl shadow-[0px_4px_73.9000015258789px_0px_rgba(62,121,255,0.20)]">
       
       <a 
         onClick={(e) => handleNavClick(e, 'home')}
