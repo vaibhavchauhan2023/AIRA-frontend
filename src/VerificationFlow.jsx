@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { API_NODE, API_PYTHON } from './App';
-import { MdGpsFixed } from 'react-icons/md';
-import { Html5QrcodeScanner } from 'html5-qrcode'; 
+import { MdGpsFixed, MdCameraAlt } from 'react-icons/md'; // Added Camera icon
+import { Html5Qrcode } from 'html5-qrcode';
 
 export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
-  const [step, setStep] = useState('qr'); 
+  const [step, setStep] = useState('qr');
   const [statusMessage, setStatusMessage] = useState('Starting QR scanner...');
   const [error, setError] = useState(null);
-  
+  const [isProcessing, setIsProcessing] = useState(false); // New state for loading
+
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const qrScannerRef = useRef(null);
@@ -15,33 +16,51 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
   // Main logic controller
   useEffect(() => {
     const runStep = async () => {
-      setError(null); 
+      setError(null);
       
       if (step === 'qr') {
         setStatusMessage('Scan the QR code in class...');
         
+        // Clear any old scanners
         if (qrScannerRef.current) {
-          try { qrScannerRef.current.clear(); } catch (err) { /* ignore */ }
+          try { qrScannerRef.current.clear(); } catch (e) {}
         }
         
-        const qrScanner = new Html5QrcodeScanner(
-          "qr-reader-container",
-          { 
-            fps: 10, 
-            qrbox: { width: 250, height: 250 },
-            supportedScanTypes: [0]
-          },
-          false
-        );
-        
-        const onScanSuccess = (decodedText) => {
-          qrScanner.clear();
-          handleQrScan(decodedText);
-        };
-        const onScanFailure = (errorMessage) => { /* ignore */ };
-        
-        qrScanner.render(onScanSuccess, onScanFailure);
-        qrScannerRef.current = qrScanner;
+        try {
+           // Start rear camera for QR scanning
+           await startCamera(false);
+
+           // Initialize QR scanner on the video element
+           const qrScanner = new Html5Qrcode("video-feed"); // Use the video element's ID
+           qrScannerRef.current = qrScanner;
+
+           // Start scanning
+           // We rely on the video element already playing, so we might not need full start here
+           // Actually, Html5Qrcode needs to take over the stream or element.
+           // Let's use a simpler approach: let Html5Qrcode handle the camera for QR step
+           // But since we already started the camera with startCamera, we can just pass the stream?
+           // No, Html5Qrcode is easier if we let IT handle the camera. 
+           // Let's refactor slightly: Stop our manual camera, let QR scanner start it.
+           stopAllScanners(); 
+
+            const qrScannerInstance = new Html5Qrcode("qr-reader-container");
+            qrScannerRef.current = qrScannerInstance;
+            
+            await qrScannerInstance.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    handleQrScan(decodedText);
+                },
+                (errorMessage) => {
+                    // ignore
+                }
+            );
+
+        } catch (err) {
+            console.error("QR Error", err);
+            setError("Failed to start QR scanner. Please grant camera permission.");
+        }
       } 
       
       else if (step === 'location') {
@@ -63,48 +82,12 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
       } 
       
       else if (step === 'face') {
-        setStatusMessage('Position your face in the oval...');
+        setStatusMessage('Position your face in the oval.');
         try {
-          // --- THIS IS THE FIX ---
-          // 'await' now guarantees the camera is ready *before* we proceed
           await startCamera(true); // Start FRONT camera
-          
-          setTimeout(async () => {
-            setStatusMessage('Verifying face...');
-            const imageBase64 = captureFrame();
-            stopAllScanners();
-            
-            if (!API_PYTHON) throw new Error("AI server URL is not configured.");
-            
-            const aiResponse = await fetch(`${API_PYTHON}/api/verify-face`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ image: imageBase64, userId }),
-            });
-            
-            const aiResult = await aiResponse.json();
-            if (!aiResponse.ok) {
-              throw new Error(aiResult.message); 
-            }
-            
-            setStatusMessage('Marking attendance...');
-            const backendResponse = await fetch(`${API_NODE}/api/mark-attendance`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ classCode, userId }),
-            });
-            
-            const backendResult = await backendResponse.json();
-            if (!backendResponse.ok) throw new Error(backendResult.message);
-
-            alert(backendResult.message); 
-            setStep('success');
-            onSuccess();
-
-          }, 3000); // 3-second delay
+          // We wait for user to click the capture button
         } catch (err) {
-          alert(err.message); 
-          onCancel();
+          setError(err.message || 'Face scan failed.');
         }
       }
     };
@@ -114,13 +97,20 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
     return () => {
       stopAllScanners();
     };
-  }, [step]); 
+  }, [step]);
 
-  // --- Utility Functions ---
+  // --- Helper Functions ---
 
   const stopAllScanners = () => {
     if (qrScannerRef.current) {
-      try { qrScannerRef.current.clear(); } catch (err) { /* ignore */ }
+      try {
+        if (qrScannerRef.current.isScanning) {
+            qrScannerRef.current.stop().catch(e => console.error(e));
+        }
+        qrScannerRef.current.clear().catch(e => console.error(e));
+      } catch (err) {
+        console.warn("Error stopping QR scanner:", err);
+      }
       qrScannerRef.current = null;
     }
     if (streamRef.current) {
@@ -129,49 +119,52 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
     }
   };
 
-  // --- THIS FUNCTION IS UPGRADED ---
   const startCamera = async (useFrontCamera) => {
-    // This now returns a Promise that resolves when the video is playing
     return new Promise(async (resolve, reject) => {
-      try {
-        stopAllScanners();
-        const constraints = { video: { width: 480, height: 640, facingMode: useFrontCamera ? 'user' : 'environment' } };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        streamRef.current = stream;
-        
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          
-          // --- THIS IS THE FIX ---
-          // We add an event listener to wait for the video to be ready
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current.play();
-            resolve(); // Resolve the promise *after* the video is ready
-          };
-          // -----------------------
-
-        } else {
-          reject(new Error("Video element not found"));
+        try {
+            stopAllScanners();
+            const constraints = { 
+                video: { 
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: useFrontCamera ? 'user' : 'environment' 
+                } 
+            };
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            streamRef.current = stream;
+            
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                videoRef.current.onloadedmetadata = () => {
+                    videoRef.current.play();
+                    resolve();
+                };
+            } else {
+                 // If video ref isn't ready yet (e.g. QR step using div), just resolve
+                 // The QR library handles its own video element inside the div
+                 resolve();
+            }
+        } catch (err) {
+            console.error("Error accessing camera: ", err);
+            setError("Could not access camera. Please grant permission.");
+            reject(err);
         }
-      } catch (err) {
-        console.error("Error accessing camera: ", err);
-        setError("Could not access camera. Please grant permission.");
-        reject(err);
-      }
     });
   };
-  // -------------------------------
-  
+
   const captureFrame = () => {
     if (!videoRef.current) return null;
     const canvas = document.createElement('canvas');
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
     const context = canvas.getContext('2d');
+    
+    // Flip if mirroring
     if (videoRef.current.style.transform === 'scaleX(-1)') {
       context.translate(canvas.width, 0);
       context.scale(-1, 1);
     }
+    
     context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
     return canvas.toDataURL('image/jpeg', 0.9);
   };
@@ -184,15 +177,61 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
     }
   };
 
+  const handleCapture = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    setStatusMessage('Verifying face...');
+    
+    try {
+      const imageBase64 = captureFrame(); 
+      stopAllScanners(); // Stop camera while processing
+
+      if (!API_PYTHON) throw new Error("AI server URL is not configured.");
+
+      // 1. AI Check
+      const aiResponse = await fetch(`${API_PYTHON}/api/verify-face`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageBase64, userId }),
+      });
+      
+      const aiResult = await aiResponse.json();
+      
+      if (!aiResponse.ok) {
+        throw new Error(aiResult.message || "Face verification failed.");
+      }
+
+      // 2. Mark Attendance
+      setStatusMessage('Marking attendance...');
+      const backendResponse = await fetch(`${API_NODE}/api/mark-attendance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ classCode, userId }),
+      });
+      
+      const backendResult = await backendResponse.json();
+      if (!backendResponse.ok) throw new Error(backendResult.message);
+
+      setStep('success');
+      onSuccess(backendResult.message);
+
+    } catch (err) {
+      setError(err.message);
+      setIsProcessing(false);
+      // Restart camera so they can try again
+      startCamera(true);
+    }
+  };
+
   const handleCancel = () => {
     stopAllScanners();
     onCancel();
   }
 
-  // --- RENDER (No changes) ---
+  // --- RENDER ---
   return (
     <div className="relative w-full min-h-screen bg-white text-gray-900 overflow-hidden font-sans">
-      <div className="absolute top-[-25rem] left-1/2 -translate-x-1/2 w-[100rem] h-[100rem] z-0 opacity-80 pointer-events-none">
+       <div className="absolute top-[-25rem] left-1/2 -translate-x-1/2 w-[100rem] h-[100rem] z-0 opacity-80 pointer-events-none">
         <div className="w-full h-full rounded-full" style={{ background: 'radial-gradient(circle, #EBF4FF 0%, transparent 70%)', filter: 'blur(150px)' }} />
       </div>
 
@@ -204,9 +243,11 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
           </h1>
           
           <div className="relative w-full aspect-[3/4] bg-gray-100 rounded-3xl overflow-hidden shadow-2xl border border-gray-100">
+             
+            {/* Container for QR Scanner Library (Auto-creates video) */}
+            <div id="qr-reader-container" className={`w-full h-full ${step === 'qr' ? '' : 'hidden'}`} />
             
-            <div id="qr-reader-container" className={step === 'qr' ? '' : 'hidden'} />
-            
+            {/* Video Element for Face Scan (We control this one) */}
             <video 
               id="video-feed"
               ref={videoRef} 
@@ -216,17 +257,16 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
               muted
               style={{ transform: step === 'face' ? 'scaleX(-1)' : 'none' }}
             />
-            
+
+             {/* Face Overlay */}
             {step === 'face' && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div 
-                  className="w-[320px] h-[420px] border-4 border-white rounded-full"
-                  style={{ boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7)' }} 
-                />
+                <div className="w-[320px] h-[420px] border-4 border-white rounded-full" style={{ boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7)' }} />
               </div>
             )}
-            
-            {step === 'location' && (
+
+             {/* Location Overlay */}
+             {step === 'location' && (
               <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
                 <MdGpsFixed className="animate-ping h-20 w-20 text-main-blue" />
               </div>
@@ -241,9 +281,20 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
             <p className="font-poppins text-red-500 mt-4 text-lg">{error}</p>
           )}
           
+          {/* Capture Button */}
+          {step === 'face' && !isProcessing && !error && (
+            <button
+              onClick={handleCapture}
+              className="mt-2 w-full bg-main-blue hover:opacity-90 text-white font-bold py-4 px-4 rounded-xl text-xl transition-colors flex items-center justify-center gap-2"
+            >
+              <MdCameraAlt className="text-2xl" />
+              Verify Identity
+            </button>
+          )}
+          
           <button
             onClick={handleCancel}
-            className="mt-6 text-gray-500 hover:text-gray-900 font-semibold transition-colors"
+            className="mt-4 text-gray-500 hover:text-gray-900 font-semibold transition-colors"
           >
             Cancel
           </button>
@@ -253,7 +304,7 @@ export function VerificationFlow({ classCode, userId, onCancel, onSuccess }) {
   );
 }
 
-// GPS Helper Function (No changes)
+// GPS Helper
 function getGPSCoordinates() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
