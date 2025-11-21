@@ -1,5 +1,10 @@
 import React from 'react';
 // We no longer import Header here
+import bgImg from './assets/bg-img.png';
+import aiImg from './assets/ai.png';
+import liveImg from './assets/live.png';
+import faceIdImg from './assets/face-id.png';
+import locationPinImg from './assets/location-pin.png';
 
 export function Homepage({ onLoginClick }) {
   return (
