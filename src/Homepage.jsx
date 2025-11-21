@@ -16,7 +16,7 @@ export function Homepage({ onLoginClick }) {
 
       <div className="w-full pt-32 pb-32 text-center">
         <div class="absolute top-0 flex items-center justify-center">
-          <img src="./src/assets/bg-img.png" alt="Hero Background"  />
+          <img src={bgImg} alt="Hero Background"  />
         </div>
         
         {/* Floating Tag 1: Face Verified */}
@@ -39,7 +39,7 @@ export function Homepage({ onLoginClick }) {
                 <div class="self-stretch inline-flex justify-center items-center gap-8">
                   <div class="flex justify-start items-center gap-5">
                     <div class="justify-start text-blue-600 text-6xl font-bold font-['Inter']">AIRA</div>
-                    <img class="w-24 h-24 origin-center rotate-180" src="./src/assets/ai.png" />
+                    <img class="w-24 h-24 origin-center rotate-180" src={aiImg} />
                   </div>
                   <div class="justify-start text-slate-800 text-6xl font-semibold font-['Inter']">The Future of</div>
                 </div>
@@ -54,19 +54,19 @@ export function Homepage({ onLoginClick }) {
           <div class="self-stretch inline-flex justify-center items-center gap-14">
             <div class="px-5 py-2.5 rounded-[200px] outline outline-1 outline-offset-[-1px] outline-neutral-200 flex justify-start items-center gap-2.5 overflow-hidden">
               <div class="w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center">
-                <img class="w-4 h-4" src="./src/assets/live.png"/>
+                <img class="w-4 h-4" src={liveImg}/>
               </div>
               <div class="justify-start text-slate-800 text-base font-medium font-['Inter']">Liveness Detection</div>
             </div>
             <div class="px-5 py-2.5 rounded-[200px] outline outline-1 outline-offset-[-1px] outline-neutral-200 flex justify-start items-center gap-2.5 overflow-hidden">
              <div class="w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center">
-              <img class="w-4 h-4" src="./src/assets/face-id.png" />
+              <img class="w-4 h-4" src={faceIdImg} />
              </div>
              <div class="justify-start text-slate-800 text-base font-medium font-['Inter']">Face Detection</div>
             </div>
             <div class="px-5 py-2.5 rounded-[200px] outline outline-1 outline-offset-[-1px] outline-neutral-200 flex justify-start items-center gap-2.5 overflow-hidden">
              <div class="w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center">
-              <img class="w-4 h-4" src="./src/assets/location-pin.png" />
+              <img class="w-4 h-4" src={locationPinImg} />
              </div>
              <div class="justify-start text-slate-800 text-base font-medium font-['Inter']">Location Verification</div>
             </div>
